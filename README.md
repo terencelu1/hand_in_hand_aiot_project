@@ -68,6 +68,7 @@ BMduino (感測器整合) ←→ 樹莓派 (數據處理) ←→ 行動應用 (�
 
 - [BMduino 整合程式說明](Bmduino/program/README.md)
 - [通訊協議詳細說明](Bmduino/program/通訊協議.md)
+- [API 使用說明](raspberrypi/API使用說明.md)
 
 ## 授權
 
