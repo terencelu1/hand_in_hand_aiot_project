@@ -1,0 +1,27 @@
+{
+  "serial": {
+    "port": "/dev/ttyACM0",
+    "baudrate": 115200
+  },
+  "camera": {
+    "device_id": 0,
+    "width": 640,
+    "height": 480
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 5000
+  },
+  "ui": {
+    "fullscreen": true,
+    "resolution": {
+      "width": 2560,
+      "height": 1440
+    }
+  },
+  "medication_detection": {
+    "timeout": 30,
+    "sensitivity": 0.7
+  }
+}
+

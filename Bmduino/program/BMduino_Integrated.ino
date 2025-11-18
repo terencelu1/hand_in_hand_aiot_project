@@ -19,7 +19,7 @@
 #include <Adafruit_Fingerprint.h>
 #include <Wire.h>
 #include "MAX30102.h"
-#include "../code/GY-906/GY906.h"
+#include "GY906.h"
 
 // ========== 腳位定義 ==========
 // 指紋辨識
@@ -78,6 +78,7 @@ bool heartRateReady = false;  // 心率是否已準備好
 bool spo2Ready = false;       // 血氧是否已準備好
 int noFingerCount = 0;  // 連續沒有手指的次數
 const int MAX_NO_FINGER_COUNT = 60;  // 連續60次沒有手指才退出（約3秒，每次循環50ms）
+int currentFingerprintID = -1;  // 當前觸發工作模式的指紋ID
 
 // ========== 待機模式變數 ==========
 unsigned long lastStandbyReport = 0;
@@ -220,6 +221,7 @@ void handleWorkingMode() {
     dataStable = false;
     heartRateReady = false;
     spo2Ready = false;
+    currentFingerprintID = -1;  // 重置指紋ID
     return;
   }
   
@@ -309,6 +311,7 @@ void handleWorkingMode() {
           dataStable = false;
           heartRateReady = false;
           spo2Ready = false;
+          currentFingerprintID = -1;  // 重置指紋ID
           return;
         }
       }
@@ -354,8 +357,10 @@ void handleWorkingMode() {
       } else {
         // 數據已穩定，檢查是否穩定足夠時間
         if (currentTime - lastValidDataTime >= DATA_STABLE_TIME) {
-          // 輸出最終結果
+          // 輸出最終結果：指紋ID,物體溫度,環境溫度,心率,血氧
           SerialUSB.print("WORKING,FINAL,");
+          SerialUSB.print(currentFingerprintID);
+          SerialUSB.print(",");
           SerialUSB.print(objectTemp, 2);
           SerialUSB.print(",");
           SerialUSB.print(ambientTemp, 2);
@@ -370,6 +375,7 @@ void handleWorkingMode() {
           noFingerCount = 0;
           heartRateReady = false;
           spo2Ready = false;
+          currentFingerprintID = -1;  // 重置指紋ID
         }
       }
     } else {
@@ -421,6 +427,16 @@ void checkFingerprint() {
   if (p == FINGERPRINT_OK) {
     // 檢測到指紋，進入工作模式
     if (currentMode == MODE_STANDBY) {
+      currentFingerprintID = finger.fingerID;  // 保存指紋ID
+      
+      // 先輸出指紋辨識結果（格式：DETECT,USER1 或 DETECT,USER2 等）
+      SerialUSB.print("DETECT,USER");
+      SerialUSB.println(currentFingerprintID);
+      
+      // 延遲一小段時間確保消息發送完成
+      delay(50);
+      
+      // 然後進入工作模式
       currentMode = MODE_WORKING;
       workModeStartTime = millis();
       dataStable = false;
