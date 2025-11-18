@@ -1,1 +1,0 @@
-https://github.com/terencelu1/hand_in_hand_aiot_project.git
