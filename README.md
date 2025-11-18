@@ -29,6 +29,10 @@ BMduino (感測器整合) ←→ 樹莓派 (數據處理) ←→ 行動應用 (�
 │   ├── program/         # 整合主程式
 │   └── reference/       # 參考資料
 ├── raspberrypi/         # 樹莓派端程式
+│   ├── code/            # 核心功能模組（串口通訊、數據庫、CV檢測等）
+│   ├── program/         # 主程式（UI、API服務器、狀態機）
+│   ├── data/            # 配置文件和數據庫
+│   └── reference/       # 參考資料
 └── reference/           # 專案參考文件
 ```
 
