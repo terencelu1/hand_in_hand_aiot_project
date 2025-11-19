@@ -1,5 +1,24 @@
 # 大手拉小手 - 智慧藥盒健康監測系統
 
+## 📱 快速下載 APP
+
+**Android APK 直接下載：**
+[![Download APK](https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android)](https://github.com/terencelu1/hand_in_hand_aiot_project/raw/main/Flutter_App_LiquidGlass.apk)
+
+**APK 資訊：**
+- 版本：1.0.0
+- 大小：22.1 MB
+- 最低 Android 版本：Android 5.0 (API 21)
+- 架構：arm64-v8a, armeabi-v7a, x86_64
+
+**安裝說明：**
+1. 點擊上方按鈕下載 APK
+2. 在手機設定中啟用「允許安裝未知來源的應用」
+3. 開啟下載的 APK 檔案進行安裝
+4. 安裝完成後，修改 `lib/services/raspberry_pi_api_service.dart` 中的 IP 地址為您的樹莓派 IP
+
+---
+
 ## 專案簡介
 
 本專案為「大手拉小手」競賽參賽作品，開發整合式智慧藥盒健康監測系統。採用 BMduino (BM53A367A) 作為核心控制平台，整合 AS608 指紋辨識、MAX30102 心率血氧感測器、GY-906 溫度感測器與四路繼電器模組，實現身份驗證、生理參數監測與智慧控制功能。
@@ -124,7 +143,7 @@ flutter build apk --release
 
 詳細 API 文檔：[API 使用說明](raspberrypi/API使用說明.md)
 
-## Flutter APP 功能
+## 📱 Flutter APP 功能
 
 ### 首頁 (Dashboard)
 - 即時顯示當前選定病患的生理數據
@@ -142,6 +161,15 @@ flutter build apk --release
 - 查看所有病患列表
 - 切換當前監控對象
 - 顯示病患基本資訊
+
+### 🎨 UI 特色
+- **Liquid Glass 設計**：現代化毛玻璃質感
+- **漸變背景**：紫色到青色的動態漸變
+- **動態圖表**：以 10 為單位的 Y 軸刻度，自動適應數據範圍
+- **即時更新**：與樹莓派 REST API 無縫整合
+
+### 📸 APP 截圖
+> 註：可在此添加 APP 截圖以展示介面
 
 ## 通訊協議
 
