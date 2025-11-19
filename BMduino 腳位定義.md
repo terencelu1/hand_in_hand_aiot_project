@@ -1,0 +1,26 @@
+AS608
+- VCC=>3.3V 
+- GND
+- TX=>D2
+- RX=>D3
+4 Relay Module
+- VCC=>5V
+- GND
+- IN1=>D8
+- IN2=>D9
+- IN3=>D10
+- IN4=>D11
+MAX30102 (BMCOM1)
+- VCC=>VDD1
+- GND=>GND
+- SDA=>SDA1
+- SCL=>SCL1
+GY-906
+- VCC=>VDD3 (5V)
+- GND=>GND
+- SDA=>SDA (D18)
+- SCL=>SCL (D19)
+DHT-11
+- VCC=>VDD3(5V)
+- GND=>GND
+- DATA=>D7

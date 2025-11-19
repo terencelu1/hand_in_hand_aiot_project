@@ -43,3 +43,48 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Arduino
+*.hex
+*.elf
+*.bin
+*.eep
+*.lss
+*.sym
+*.map
+*.su
+*.d
+*.o
+*.a
+*.lst
+
+# OS
+Thumbs.db
+desktop.ini
+
+# 臨時文件
+*.tmp
+*.bak
+
+# 編譯輸出
+dist/
+*.egg-info/
+
+# 數據文件（如果很大）
+*.csv
+*.db
+*.sqlite
+
+# 參考文件中的大型 PDF（可選，如果太大可以忽略）
+# reference/*.pdf

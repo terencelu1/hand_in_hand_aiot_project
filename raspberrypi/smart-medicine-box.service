@@ -1,0 +1,17 @@
+[Unit]
+Description=智慧藥盒系統
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/大手攜小手_code/raspberrypi
+ExecStart=/usr/bin/python3 /home/pi/大手攜小手_code/raspberrypi/program/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

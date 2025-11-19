@@ -1,0 +1,648 @@
+#include "BMK52T016.h"    //按鍵
+#include "BMD31M090.h"    //OLED
+#include "Bitmap.h"   //OLED
+#include "BM92S2222-A.h"    //指紋
+#include "BMV31T001.h"    //語音模組
+#include "morning.h"
+#include "BM22S4221-1.h"    //PIR模組
+#include "Timer.h"                     //http://github.com/JChristensen/Timer
+#include "BMC81M001.h"
+//-------------------------------------------------------------------------
+#define BMD31M090_WIDTH 128   //OLED
+#define BMD31M090_HEIGHT 64
+#define BMD31M090_ADDRESS 0x3C
+//-------------------------------------------------------------------------
+uint8_t t = ' ';    //OLED
+unsigned int keyValue=0;    //按鍵
+const char keypadMapping[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+uint16_t id = 1;    //指紋
+uint8_t count = 1;
+uint8_t keyout_flag = 0;
+String registerid={};
+String verify_account={};
+int sum=0;
+int verifyid=100;
+const uint8_t voice_table[]={VOC_1,VOC_2,VOC_3,VOC_4,VOC_5,VOC_6,VOC_7,VOC_8,VOC_9,VOC_10};    //語音模組
+const uint8_t DEFAULT_VOLUME = 2;
+uint8_t STATUS=7; // 更改 STATUS PIN     //PIR模組
+uint8_t Detection_time=30;    //檢測時間
+uint8_t Buffer_time=1;    //緩衝時間
+uint8_t Sensitivity=31;
+bool enteringPassword = false;    //密碼
+bool verifyingPassword = false;
+char password[101][5];
+char verify[5];
+int Check_password=0;    //登入核對密碼會衝突
+int control=0;    //控制功能鍵不能隨意跳換(註冊登入)
+int check_id=0;   //確認登入使用者
+int Duplicate_password=0;    //確認是否有密碼
+String verify_password{};
+int abnormal=0;
+String ssid = "chichi";            // your network SSID (name)
+String pass = "1q2w3e4r";        // your network password
+int wifi_TIMER=0;    //先讓設定WIFI初始
+int WIFI_count=0;   //WIFI_init一個一個輸出
+//-------------------------------------------------------------------------
+BMK52T016 BMK52(2,&Wire); // 第一個Pin腳,第二個用於I2C通信
+BMD31M090 BMD31(BMD31M090_WIDTH, BMD31M090_HEIGHT, &Wire);    //OLED
+BM92S2222_A fps(22,&Serial1);   //fps(Key,Tx,Rx)
+BMV31T001 myBMV31T001;    //語音模組
+BM22S4221_1 PIR(STATUS,15,14);  //PIR模組
+Timer tt;    //建立計時器物件
+
+//-------------------------------------------------------------------------
+#include <SoftwareSerial.h>
+#define wifi_RX_PIN 5
+#define wifi_TX_PIN 4
+#define wifi_BAUDRATE 115200
+//SoftwareSerial wifi(wifi_RX_PIN, wifi_TX_PIN);
+//BMC81M001 wifi(&Serial4);
+//#define wifi Serial;
+
+//--------------------------------------------------------------------
+
+void upper_drawString_8X16(String x)   //上層
+{
+ BMD31.clearDisplay();    // 清除顯示器的內容
+ BMD31.display();   // 顯示
+ uint8_t col, row;    //宣告變數
+ BMD31.setFont(FontTable_8X16);    //字型大小
+ col = (128 - (8 * x.length()))/2;    //居中
+ BMD31.drawString(col, 1, (u8*)x.c_str());
+ delay(500);
+}
+
+void middle_drawString_8X16(String x)   //上層
+{
+ BMD31.clearDisplay();    // 清除顯示器的內容
+ BMD31.display();   // 顯示
+ uint8_t col, row;    //宣告變數
+ BMD31.setFont(FontTable_8X16);    //字型大小
+ col = (128 - (8 * x.length()))/2;    //居中
+ BMD31.drawString(col, 3, (u8*)x.c_str());
+ delay(500);
+}
+
+void lower_drawString_8X16(String x)   //下層
+{
+ //BMD31.clearDisplay();    // 清除顯示器的內容
+ //BMD31.display();   // 顯示
+ uint8_t col, row;    //宣告變數
+ BMD31.setFont(FontTable_8X16);    //字型大小
+ col = (128 - (8 * x.length()))/2;    //居中
+ BMD31.drawString(col, 4, (u8*)x.c_str());
+ delay(500);
+}
+
+void Finger()
+{
+   while(sum==0){
+   uint8_t iret = 5;
+   keyout_flag = 1;
+   delay(300);
+   if(fps.isPressFinger()==true)    //檢查是否偵測到指紋
+   {
+     if(count == 1)
+     {
+        while (fps.checkEnrolled(id)==true)   //檢查該ID是否已註冊
+        {
+          id++;
+          registerid = "No." + String(id);
+        }
+        if(fps.enrollStart(id)==0)    //開始登記指紋ID
+        {
+          Serial.print(F("Press finger to Enroll # "));     //按手指即可註冊       
+          Serial.println(id);
+          middle_drawString_8X16(registerid);
+          Serial.println(F("Press same finger again: 1nd time "));    //再按同一指：第 1 次
+          upper_drawString_8X16("1nd time");
+          if (fps.captureFinger() != false)   //掃描指紋
+          {        
+            Serial.println("capture success");    //捕捉手指成功
+            lower_drawString_8X16("capture success");
+            upper_drawString_8X16("1nd time");
+            iret = fps.enroll1();     //首次掃描指紋
+            switch(iret)
+            {
+              case 0 :
+              {
+                Serial.println("enroll1 success");    //掃描成功
+                lower_drawString_8X16("enroll1 success");
+                break;
+              }
+              case 1 :
+              {
+                Serial.println("The database is full");   //資料庫已滿
+                lower_drawString_8X16("Database full");
+                sum=1;
+                abnormal=1;
+                break;
+              }
+              case 2 : 
+              {
+                Serial.println("inactive position");    //不要移動
+                lower_drawString_8X16("Don't move");
+                break;
+              }
+              case 3 :
+              {
+                Serial.println("ID already used");    //身份證已被使用
+                lower_drawString_8X16("ID already used");
+                sum=1;
+                abnormal=1;
+                break;
+              }
+              default:
+              {
+                Serial.println("enroll1 fail");   //註冊失敗
+                lower_drawString_8X16("enroll1 fail");
+                break;
+              }
+            }
+          }
+          else
+          {
+            Serial.println(F("Enroll Failed with error captureFinger"));    //註冊錯誤(captureFinger)
+            lower_drawString_8X16("capture error");
+          }
+        }
+        else
+        {
+          Serial.println(F("Enroll Failed with error enrollStart"));    ////註冊錯誤(enrollStart)
+          lower_drawString_8X16("id error");
+        }        
+     }
+     if(count == 2)
+     {
+        Serial.println(F("Press same finger again: 2nd time "));    //輸入第二次
+        upper_drawString_8X16("2nd time");
+        if (fps.captureFinger() != false)   //掃描指紋
+        {
+          Serial.println("captureFinger success");    //捕捉手指成功
+          lower_drawString_8X16("capture success");
+          upper_drawString_8X16("2nd time");
+          iret = fps.enroll2();   //第二次掃描指紋
+          switch(iret)
+          {
+            case 0 :
+            {
+              Serial.println("enroll2 success");    //掃描成功
+              lower_drawString_8X16("enroll1 success");
+              break;
+            }
+            case 1 :
+            {
+              Serial.println("The database is full");   //資料庫已滿
+              lower_drawString_8X16("Database full");
+              sum=1;
+              abnormal=1;
+              break;
+            }
+            case 2 :
+            {
+              Serial.println("inactive position");    //不要移動
+              lower_drawString_8X16("Don't move");
+              break;
+            }
+            case 3 :
+            {
+              Serial.println("ID already used");    //身份證已被使用
+              lower_drawString_8X16("ID already used");
+              sum=1;
+              abnormal=1;
+              break;
+            }
+            default:
+            {
+              Serial.println("enroll2 fail");   //註冊失敗
+              lower_drawString_8X16("enroll1 fail");
+              break;
+            }
+         }
+       }
+       else
+       {
+          Serial.println(F("Enroll Failed with error captureFinger"));    //註冊因 captureFinger 錯誤而失敗
+          lower_drawString_8X16("capture error");
+       }
+     }
+     if(count == 3)
+     {
+        Serial.println(F("Press same finger again: 3nd time "));    //輸入第三次
+        upper_drawString_8X16("3nd time");
+        if (fps.captureFinger() != false)   //掃描指紋
+        {
+          Serial.println("captureFinger success");    //捕捉手指成功
+          lower_drawString_8X16("capture success");
+          upper_drawString_8X16("3nd time");
+          iret = fps.enroll3();   //第三次掃描指紋
+          switch(iret)
+          {
+            case 0 : 
+            {
+              Serial.println("enroll3 success");    //掃描成功
+              lower_drawString_8X16("enroll1 success");
+              Serial.println("enroll END");   //結束
+              
+              if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+                
+                myBMV31T001.executeUpdate(); // Execute audio source updates
+              }
+              if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+              myBMV31T001.playVoice(voice_table[3]);
+              delay(3000);
+              myBMV31T001.playStop();
+              delay(3000);
+
+              sum=1;
+              break;
+            }
+            case 1 :
+            {
+              Serial.println("The database is full");   //資料庫已滿
+              lower_drawString_8X16("Database full");
+              sum=1;
+              abnormal=1;
+              break;
+            }
+            case 2 :
+            {
+              Serial.println("inactive position");    //不要移動
+              lower_drawString_8X16("Don't move");
+              break;
+            }
+            case 3 : 
+            {
+              Serial.println("ID already used");    //身份證已被使用
+              lower_drawString_8X16("ID already used");
+              sum=1;
+              abnormal=1;
+              break;
+            }
+            default:
+            {
+              Serial.println("enroll3 fail");   //註冊失敗
+              lower_drawString_8X16("enroll1 fail");
+              break;
+            }
+          }
+        }
+        else
+        {
+          Serial.println(F("Enroll Failed with error captureFinger"));
+          lower_drawString_8X16("capture error");
+        }     
+      }
+    }
+    else
+    {
+      Serial.println(F("No fingerprint detected"));   //未偵測到指紋
+    }
+    if(iret == 0)   //掃描成功
+    {
+      count++;    //換一個
+      if( count == 4)
+      {
+        count = 1;
+      }
+    }
+    else if(iret == 3)    //如果身份證已被使用
+    {
+      count = 1;    //從頭
+    }
+   /*}
+   else if (fps.getKeyout() ==1)
+   {
+     keyout_flag = 0;
+   }*/
+   }
+}
+
+void verify_Finger()
+{
+  while(sum==0){
+  delay(200); // 等待 200ms，確保用戶按下手指
+    if(fps.isPressFinger()) // 手指按下
+    {
+      if(fps.captureFinger()) // 掃描指紋
+      {
+        verifyid = fps.identify(); // 與註冊過的指紋庫進行對比
+        Serial.println(verifyid);
+        if(0<verifyid &&  verifyid< 100) // BM92S2222-A 具有 100 個指紋容量
+        {
+          Serial.print(F("Verified ID:"));
+
+          String Login_history = "使用者" + String(verifyid) + "指紋登入成功";
+          debug("AT+MQTTPUB=0,\"Login history\",\"" + Login_history + "\",0,0\r\n");
+          
+          verify_account = "Verified ID:" + String(verifyid);
+          middle_drawString_8X16(verify_account);
+          sum=1;
+          debug("AT+MQTTPUB=0,\"historical_record\",\"" + String(verify_account) + "\",0,0\r\n");   //mqtt是誰登入
+          if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+            myBMV31T001.executeUpdate(); // Execute audio source updates
+          }
+          if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+
+          myBMV31T001.playVoice(voice_table[0]);
+          delay(3000);
+          myBMV31T001.playStop();
+          delay(3000);
+          
+        }
+        else
+        {
+          Serial.print(F("ID not used"));
+
+          String Login_history = "指紋登入失敗";
+          debug("AT+MQTTPUB=0,\"Login history\",\"" + Login_history + "\",0,0\r\n");
+          
+          middle_drawString_8X16("ID not used");
+          sum=1;
+
+          if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+            myBMV31T001.executeUpdate(); // Execute audio source updates
+          }
+          if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+
+          myBMV31T001.playVoice(voice_table[2]);
+          delay(3000);
+          myBMV31T001.playStop();
+          delay(3000);
+        }
+      }
+      else
+      {
+        Serial.println("error captureFinger"); // 手指掃描失敗
+        middle_drawString_8X16("capture error");
+      }
+    }
+    else
+    {    
+     Serial.println(F("Please press finger"));   // 手指未按下
+     middle_drawString_8X16("press finger");
+    }
+  delay(1000);
+  }
+}
+
+void clearPassword()     //清空密碼
+{
+  memset(password, 0, sizeof(password));
+  memset(verify, 0, sizeof(verify));
+}
+
+void addDigitToPassword(char digit)    //註冊密碼
+{
+  static int position = 0;
+  if (position < 4) {
+    password[id][position] = digit;   // 把數字添加到密碼數組中
+    position++;
+    if(position==4){
+      Serial.println("輸入完成");
+      middle_drawString_8X16("completed");
+      if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+            myBMV31T001.executeUpdate(); // Execute audio source updates
+          }
+          if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+          myBMV31T001.playVoice(voice_table[4]);
+          delay(3000);
+          myBMV31T001.playStop();
+          delay(3000);
+          
+      position=0;
+      control=0;
+      sum=0;     
+      enteringPassword = false;
+    }
+  } 
+}
+
+void verifyPassword(char digit)    //登入密碼
+{
+  static int xyz = 0;
+  if (xyz < 4) {
+    verify[xyz++] = digit;  
+    if(xyz==4){
+      Serial.println("輸入完成"); 
+      //middle_drawString_8X16("completed");
+      xyz=0;
+      Check_password=1;
+      control=0;
+    }
+  }
+}
+
+int checkPassword()    //核對密碼
+{
+  if(Check_password==1){
+    for(int i=1;i<=id;i++){
+      if(password[i][0]==verify[0] && password[i][1]==verify[1] && password[i][2]==verify[2] && password[i][3]==verify[3]){
+        Duplicate_password=1;    
+        check_id=i;
+        break;    
+      }
+    }
+    if(Duplicate_password==1){
+      Serial.println("密碼正確");
+      
+      String Login_history = "使用者" + String(check_id) + "密碼登入成功";
+      debug("AT+MQTTPUB=0,\"Login history\",\"" + Login_history + "\",0,0\r\n");
+      
+      verify_password = "Verified ID:" + String(check_id);
+      middle_drawString_8X16(verify_password);
+      Serial.println(check_id);         
+      verifyingPassword = false;
+      Check_password=0;
+      Duplicate_password=0;
+      debug("AT+MQTTPUB=0,\"historical_record\",\"" + String(verify_password) + "\",0,0\r\n");   //mqtt是誰登入
+      if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+            myBMV31T001.executeUpdate(); // Execute audio source updates
+          }
+          if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+          myBMV31T001.playVoice(voice_table[0]);
+          delay(3000);
+          myBMV31T001.playStop();
+          delay(3000);
+    }else{
+      Serial.println("密碼錯誤");
+
+      String Login_history = "密碼登入失敗";
+      debug("AT+MQTTPUB=0,\"Login history\",\"" + Login_history + "\",0,0\r\n");
+      
+      middle_drawString_8X16("error");
+      verifyingPassword = false;
+      Check_password=0;
+       if (myBMV31T001.isUpdateBegin() == BMV31T001_UPDATA_BEGIN) {    //語音模組
+            myBMV31T001.executeUpdate(); // Execute audio source updates
+          }
+          if (myBMV31T001.isPlaying() == BMV31T001_BUSY) {
+                  myBMV31T001.setLED(BMV31T001_LED_ON); // LED on
+              } else {
+                  myBMV31T001.setLED(BMV31T001_LED_OFF); // LED off
+              }
+          myBMV31T001.playVoice(voice_table[1]);
+          delay(3000);
+          myBMV31T001.playStop();
+          delay(3000);
+    }
+  }     
+}
+
+void debug(String cmd)    //將接收到的訊息 回傳
+{
+  Serial4.print(cmd);
+  Serial.print(cmd);
+}
+
+void wait()    //將接收到的訊息 回傳
+{
+  if (Serial4.available()) {
+    String response = Serial4.readString();
+    Serial.println("接收到回應： " + response);
+  }  
+}
+
+void WIFI_init()    //WIFI初始
+{//Serial.print("E");
+  switch (WIFI_count) {
+    case 0:
+      debug("AT\r\n");
+      WIFI_count++;break;
+    case 1:
+      debug("ATE0\r\n");
+      WIFI_count++;break;
+    case 2:
+      debug("AT+CWJAP=\"" + ssid + "\",\"" + pass + "\"\r\n");
+      WIFI_count++;break;
+    case 3:
+      debug("AT+MQTTCLEAN=0\r\n");
+      WIFI_count++;break;
+    case 4: {
+      int i = random(1000000000, 10000000000);
+      String clientId = "esp8266-" + String(i);
+      debug("AT+MQTTUSERCFG=0,1,\"" + clientId + "\",\"\",\"\",0,0,\"broker.MQTTGO.io\"\r\n");
+      WIFI_count++;break;
+    }
+    case 5:
+      debug("AT+MQTTCONN=0,\"broker.MQTTGO.io\",1883,0\r\n");
+      WIFI_count++;break;
+    default:
+      wifi_TIMER=1;
+      //Serial.println("6666666");
+      break;
+  }
+}
+
+void setup()
+{
+ BMK52.begin(); // 初始化BMK52T016
+ Serial.begin(9600);
+ BMD31.begin(BMD31M090_ADDRESS);    //OLED
+ delay(100);
+ 
+ PIR.begin();   //PIR模組
+ Serial.println(PIR.setAlarmOutputTime(Detection_time)); 
+ Serial.println(PIR.setAlarmDetectDelay(Buffer_time));
+ Serial.println(PIR.setOpaGain(Sensitivity));
+ delay(100);
+ 
+ fps.begin();
+ fps.deleteAll();   //刪除所有ID指紋
+
+ myBMV31T001.begin();   //語音模組
+ myBMV31T001.setPower(BMV31T001_POWER_ENABLE);
+ myBMV31T001.initAudioUpdate(); // 更新音源
+ delay(100);
+ myBMV31T001.setVolume(DEFAULT_VOLUME);
+
+ clearPassword(); // 清空密碼
+ 
+ randomSeed(analogRead(A0));   //類比腳位取出一個數值當作亂數種子
+ //wifi.begin(wifi_BAUDRATE); 
+ Serial4.begin(115200); 
+ tt.every(5000,WIFI_init);//設定固定時間，呼叫函示
+ //Serial.print("A");
+ middle_drawString_8X16("press finger");
+}
+void loop()
+{
+ wait();
+ tt.update();//在loop裡面會檢查更新計時器
+ if(PIR.getSTATUS()==HIGH && wifi_TIMER==1)
+ { //Serial.print("B");
+   if(BMK52.getINT() == 0)    //==0表示有按键觸發
+   {
+    keyValue=log2(BMK52.readKeyValue()); 
+    if (keyValue < 17) // 确保按键值在有效范围内
+    {
+      Serial.print("  Character: ");
+      Serial.println(keypadMapping[keyValue]); // 显示对应的字符
+      middle_drawString_8X16(String(keypadMapping[keyValue]));
+      if(keypadMapping[keyValue]=='A' && control==0){
+        Serial.println("輸入指紋");   
+        middle_drawString_8X16("Register");
+        Finger();
+        
+        if(abnormal==0){
+          Serial.println("輸入密碼");
+          middle_drawString_8X16("password");
+          Serial.println(id);        
+          enteringPassword = true;          
+          control=1;
+        }else{
+          abnormal=0;
+          sum=0;
+        } 
+      }else if (enteringPassword) {
+        if (keyValue >= 0 && keyValue <= 9) { // 數字鍵
+          addDigitToPassword(keypadMapping[keyValue]);
+          middle_drawString_8X16(String(keypadMapping[keyValue]));
+        }
+      }
+      
+      if(keypadMapping[keyValue]=='B' && control==0){
+        Serial.println(F("Please press finger withiin2 milliseconds "));
+        middle_drawString_8X16("verify");
+        verify_Finger();
+        sum=0;
+      }
+
+      if(keypadMapping[keyValue]=='C' && control==0){
+        Serial.println("驗證密碼");
+        middle_drawString_8X16("password");        
+        verifyingPassword = true;
+        control=1;
+      }else if (verifyingPassword) {
+        if (keyValue >= 0 && keyValue <= 9) { 
+          verifyPassword(keypadMapping[keyValue]);
+          middle_drawString_8X16(String(keypadMapping[keyValue]));
+          checkPassword();
+        }
+      }
+      
+   }
+  }
+ }
+ 
+}
