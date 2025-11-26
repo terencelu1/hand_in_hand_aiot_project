@@ -2,10 +2,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/patient.dart';
 import '../services/demo_repository.dart';
+import '../services/raspberry_pi_api_service.dart';
+import '../config/api_config.dart';
+import 'server_ip_provider.dart';
 
 // Repository provider
 final demoRepositoryProvider = Provider<DemoRepository>((ref) {
-  return DemoRepository();
+  final serverIp = ref.watch(serverIpProvider);
+  final apiService = RaspberryPiApiService(
+    serverIp: serverIp,
+    port: ApiConfig.defaultPort,
+  );
+  return DemoRepository(apiService: apiService);
 });
 
 // 所有病人 provider（使用 FutureProvider 支援 async）

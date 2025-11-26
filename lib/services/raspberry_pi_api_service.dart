@@ -1,15 +1,24 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 /// 樹莓派 API 服務
-/// 基礎 URL: http://172.20.10.8:5000
 class RaspberryPiApiService {
-  static const String baseUrl = 'http://172.20.10.8:5000';
   static const Duration timeout = Duration(seconds: 10);
 
   final http.Client _client;
+  final String _serverIp;
+  final int _port;
 
-  RaspberryPiApiService({http.Client? client}) : _client = client ?? http.Client();
+  RaspberryPiApiService({
+    http.Client? client,
+    String? serverIp,
+    int? port,
+  })  : _client = client ?? http.Client(),
+        _serverIp = serverIp ?? ApiConfig.defaultServerIp,
+        _port = port ?? ApiConfig.defaultPort;
+
+  String get baseUrl => 'http://$_serverIp:$_port';
 
   /// 健康檢查
   Future<bool> checkHealth() async {

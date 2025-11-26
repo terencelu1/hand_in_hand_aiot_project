@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../providers/patient_providers.dart';
+import '../../providers/server_ip_provider.dart';
 import '../../theme.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -10,6 +11,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final selectedPatient = ref.watch(selectedPatientProvider);
+    final serverIp = ref.watch(serverIpProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +34,12 @@ class SettingsPage extends ConsumerWidget {
           // 量測設定
           _buildSectionHeader(context, '量測設定'),
           _buildMeasurementSettings(context),
+          
+          const SizedBox(height: 24),
+          
+          // 伺服器設定
+          _buildSectionHeader(context, '伺服器設定'),
+          _buildServerSettings(context, ref, serverIp),
           
           const SizedBox(height: 24),
           
@@ -180,6 +188,25 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
+  Widget _buildServerSettings(BuildContext context, WidgetRef ref, String serverIp) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.dns),
+            title: const Text('伺服器 IP 地址'),
+            subtitle: Text(serverIp),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              _showServerIpDialog(context, ref, serverIp);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOtherSettings(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -203,6 +230,113 @@ class SettingsPage extends ConsumerWidget {
             onTap: () {
               _showAboutDialog(context);
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showServerIpDialog(BuildContext context, WidgetRef ref, String currentIp) {
+    final controller = TextEditingController(text: currentIp);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('設定伺服器 IP 地址'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('請輸入樹莓派伺服器的 IP 地址：'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'IP 地址',
+                hintText: '例如: 10.23.220.34',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '目前 IP: $currentIp',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newIp = controller.text.trim();
+              if (newIp.isEmpty) {
+                // 顯示錯誤訊息
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('IP 地址不能為空'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              
+              // 驗證IP格式
+              final ipRegex = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
+              if (!ipRegex.hasMatch(newIp)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('IP 地址格式不正確，請輸入有效的 IPv4 地址'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              
+              // 檢查每個數字段是否在0-255範圍內
+              final parts = newIp.split('.');
+              bool isValid = true;
+              for (final part in parts) {
+                final num = int.tryParse(part);
+                if (num == null || num < 0 || num > 255) {
+                  isValid = false;
+                  break;
+                }
+              }
+              
+              if (!isValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('IP 地址格式不正確，每個數字段應在 0-255 之間'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              
+              // IP 驗證通過，保存
+              ref.read(serverIpProvider.notifier).setServerIp(newIp);
+              Navigator.pop(context);
+              
+              // 顯示成功訊息
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('伺服器 IP 已更新為: $newIp'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('儲存'),
           ),
         ],
       ),
